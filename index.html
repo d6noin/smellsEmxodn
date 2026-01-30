@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>OFFNIKOV Text Editor</title>
+<style>
+body {
+    margin: 0;
+    font-family: 'Arial', sans-serif;
+    background: url('bp.jpg') no-repeat center center fixed;
+    background-size: cover;
+    color: #ff6666;
+    overflow: hidden;
+}
+
+#logo {
+    display: block;
+    margin: 20px auto 10px auto;
+    max-width: 250px;
+}
+
+#stats {
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+#textContainer {
+    width: 90%;
+    min-height: 400px;
+    max-height: 60vh;
+    margin: 0 auto;
+    padding: 12px;
+    border: 4px solid #8B0000;
+    background-color: rgba(0,0,0,0.7);
+    overflow-y: scroll;
+    font-size: 16px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+#hiddenInput {
+    width: 100%;
+    height: 50px;
+    opacity: 0;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+.shake {
+    display: inline-block;
+    animation: shake 0.15s infinite;
+}
+
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    50% { transform: translateX(2px); }
+    75% { transform: translateX(-2px); }
+    100% { transform: translateX(2px); }
+}
+
+button {
+    display: inline-block;
+    margin: 5px;
+    padding: 10px 20px;
+    font-size: 16px;
+    color: white;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    background: url('logo.jpg') no-repeat center center / cover; /* можно заменить на blood_texture */
+    text-shadow: 0 0 2px black;
+    border-radius: 10px;
+}
+
+button:hover {
+    filter: brightness(1.2);
+}
+
+#buttonsContainer {
+    text-align: center;
+    margin-top: 10px;
+}
+
+#logContainer {
+    width: 90%;
+    max-height: 150px;
+    margin: 10px auto;
+    padding: 10px;
+    border: 2px solid #8B0000;
+    background-color: rgba(0,0,0,0.7);
+    color: #ff4444;
+    font-size: 14px;
+    overflow-y: scroll;
+}
+</style>
+</head>
+<body>
+<img id="logo" src="logo.jpg" alt="Логотип">
+<div id="stats">
+    <span id="words">Слова: 0</span> | 
+    <span id="chars">Символы: 0</span> | 
+    <span id="paragraphs">Абзацы: 0</span>
+</div>
+
+<div id="textContainer"></div>
+<input type="text" id="hiddenInput" autofocus>
+
+<div id="buttonsContainer">
+    <button id="resetBtn">Reset</button>
+    <button id="copyBtn">Copy</button>
+    <button id="pasteBtn">Paste</button>
+</div>
+
+<div id="logContainer"></div>
+
+<script>
+const hiddenInput = document.getElementById('hiddenInput');
+const textContainer = document.getElementById('textContainer');
+const resetBtn = document.getElementById('resetBtn');
+const copyBtn = document.getElementById('copyBtn');
+const pasteBtn = document.getElementById('pasteBtn');
+const logContainer = document.getElementById('logContainer');
+
+const wordsSpan = document.getElementById('words');
+const charsSpan = document.getElementById('chars');
+const paragraphsSpan = document.getElementById('paragraphs');
+
+let textArray = [];
+let currentWord = [];
+
+function updateStats() {
+    const text = textArray.join('');
+    const wordCount = text.split(/\s+/).filter(w => w.trim().length>0).length;
+    const charCount = text.replace(/\s/g, '').length;
+    const paragraphCount = text.split(/\n/).length;
+    wordsSpan.textContent = `Слова: ${wordCount}`;
+    charsSpan.textContent = `Символы: ${charCount}`;
+    paragraphsSpan.textContent = `Абзацы: ${paragraphCount}`;
+}
+
+function logForbidden(char) {
+    const logEntry = document.createElement('div');
+    logEntry.textContent = `Обнаружен запрещённый символ: ${char}`;
+    logContainer.appendChild(logEntry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+// Обрабатываем ввод
+hiddenInput.addEventListener('input', () => {
+    const val = hiddenInput.value;
+    hiddenInput.value = '';
+
+    for (let char of val) {
+        if (/[^а-яёА-ЯЁ \n]/.test(char)) {
+            logForbidden(char);
+            const mark = document.createElement('span');
+            mark.textContent = '❌';
+            mark.style.color = '#ff0000';
+            mark.style.fontWeight = 'bold';
+            textContainer.appendChild(mark);
+            continue;
+        }
+
+        if (char === " ") {
+            currentWord.forEach(span => span.classList.remove('shake'));
+            const space = document.createElement('span');
+            space.textContent = " ";
+            textContainer.appendChild(space);
+            textArray.push(" ");
+            currentWord = [];
+        } else if (char === "\n") {
+            currentWord.forEach(span => span.classList.remove('shake'));
+            const br = document.createElement('br');
+            textContainer.appendChild(br);
+            textArray.push("\n");
+            currentWord = [];
+        } else {
+            const span = document.createElement('span');
+            span.textContent = char;
+            span.className = 'shake';
+            textContainer.appendChild(span);
+            textArray.push(char);
+            currentWord.push(span);
+        }
+    }
+
+    updateStats();
+    textContainer.scrollTop = textContainer.scrollHeight;
+});
+
+// Reset
+resetBtn.addEventListener('click', () => {
+    textContainer.innerHTML = '';
+    logContainer.innerHTML = '';
+    textArray = [];
+    currentWord = [];
+    updateStats();
+});
+
+// Copy
+copyBtn.addEventListener('click', () => {
+    const text = textArray.join('');
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Текст скопирован!');
+    });
+});
+
+// Paste
+pasteBtn.addEventListener('click', async () => {
+    const text = await navigator.clipboard.readText();
+    for (let char of text) {
+        hiddenInput.value = char;
+        hiddenInput.dispatchEvent(new Event('input'));
+    }
+});
+
+// Фокус на input при клике на текст
+textContainer.addEventListener('click', () => hiddenInput.focus());
+hiddenInput.focus();
+</script>
+</body>
+</html>
